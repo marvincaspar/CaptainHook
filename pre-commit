@@ -1,0 +1,184 @@
+#!/bin/bash
+
+#
+# Check php code with PHP Linter, PHP Code Beautifier and Fixer, PHP Codesniffer, PHP Mess Detector and PHP Unit
+#
+
+# Echo Colors
+msg_color_red='\033[0;31m'
+msg_color_yellow='\033[0;33m'
+msg_color_green='\033[0;32m'
+msg_color_none='\033[0m'
+
+
+# ---------------------------------------------------------------------
+# PHP Linter
+# ---------------------------------------------------------------------
+
+echo -en "${msg_color_yellow}Begin PHP Linter...${msg_color_none} \n"
+php_errors_found=false
+
+while read FILE; do
+  php -l "$FILE" 1> /dev/null
+  if [ $? -ne 0 ]; then
+    php_errors_found=true
+  fi
+done < <(git diff --cached --name-only)
+
+if [ $php_errors_found = true ]; then
+  exit 1
+else
+  echo -en "${msg_color_green}Finish PHP Linter without any errors!${msg_color_none} \n"
+fi
+
+
+# ---------------------------------------------------------------------
+# PHP Code Beautifier and Fixer
+# ---------------------------------------------------------------------
+
+echo -en "${msg_color_yellow}Begin PHP Code Beautifier and Fixer...${msg_color_none} \n"
+phpcbf_local_exec="phpcbf.phar"
+phpcbf_command="php $phpcbf_local_exec"
+
+# Check if phpcbf is available
+phpcbf_vendor_command="vendor/bin/phpcbf"
+phpcbf_global_command="phpcbf"
+if [ -f "$phpcbf_vendor_command" ]; then
+  phpcbf_command=$phpcbf_vendor_command
+else
+  if hash phpcbf 2>/dev/null; then
+    phpcbf_command=$phpcbf_global_command
+  else
+    if [ -f "$phpcbf_local_exec" ]; then
+      phpcbf_command=$phpcbf_command
+    else
+      echo "No valid PHP Code Beautifier and Fixer executable found! Please have one available as either $phpcbf_vendor_command, $phpcbf_global_command or $phpcbf_local_exec"
+      exit 1
+    fi
+  fi
+fi
+
+# Excecute phpcbf
+command_result=$(eval $phpcbf_command --standard=PSR2 src/)
+if [[ $command_result =~ ERROR ]]; then
+  echo -en "${msg_color_red}Errors detected by PHP Code Beautifier and Fixer...${msg_color_none} \n"
+  echo "$command_result"
+  exit 1
+else
+  echo -en "${msg_color_green}Finish PHP Code Beautifier and Fixer without any errors!${msg_color_none} \n"
+fi
+
+
+# ---------------------------------------------------------------------
+# PHP Codesniffer
+# ---------------------------------------------------------------------
+
+echo -en "${msg_color_yellow}Begin PHP Codesniffer...${msg_color_none} \n"
+phpcs_local_exec="phpcs.phar"
+phpcs_command="php $phpcs_local_exec"
+
+# Check if phpcs is available
+phpcs_vendor_command="vendor/bin/phpcs"
+phpcs_global_command="phpcs"
+if [ -f "$phpcs_vendor_command" ]; then
+  phpcs_command=$phpcs_vendor_command
+else
+  if hash phpcs 2>/dev/null; then
+    phpcs_command=$phpcs_global_command
+  else
+    if [ -f "$phpcs_local_exec" ]; then
+      phpcs_command=$phpcs_command
+    else
+      echo "No valid PHP Codesniffer executable found! Please have one available as either $phpcs_vendor_command, $phpcs_global_command or $phpcs_local_exec"
+      exit 1
+    fi
+  fi
+fi
+
+# Excecute phpcs
+# -n = do not print warnings
+command_result=$(eval $phpcs_command --standard=PSR2 src/ -n)
+if [[ $command_result =~ ERROR ]]; then
+  echo -en "${msg_color_red}Errors detected by PHP CodeSniffer...${msg_color_none} \n"
+  echo "$command_result"
+  exit 1
+else
+  echo -en "${msg_color_green}Finish PHP Codesniffer without any errors!${msg_color_none} \n"
+fi
+
+
+# ---------------------------------------------------------------------
+# PHP Mess Detector
+# ---------------------------------------------------------------------
+
+echo -en "${msg_color_yellow}Begin PHP Mess Detector...${msg_color_none} \n"
+phpmd_local_exec="phpmd.phar"
+phpmd_command="php $phpmd_local_exec"
+
+# Check if phpmd is available
+phpmd_vendor_command="vendor/bin/phpmd"
+phpmd_global_command="phpmd"
+if [ -f "$phpmd_vendor_command" ]; then
+  phpmd_command=$phpmd_vendor_command
+else
+  if hash phpmd 2>/dev/null; then
+    phpmd_command=$phpmd_global_command
+  else
+    if [ -f "$phpmd_local_exec" ]; then
+      phpmd_command=$phpmd_command
+    else
+      echo "No valid PHP Mess Detector executable found! Please have one available as either $phpmd_vendor_command, $phpmd_global_command or $phpmd_local_exec"
+      exit 1
+    fi
+  fi
+fi
+
+# Excecute phpmd
+command_result=$(eval $phpmd_command src/ text cleancode,codesize,controversial,design,naming,unusedcode)
+if [[ ${#command_result} -gt 0 ]]; then
+  echo -en "${msg_color_red}Errors detected by PHP Mess Detector...${msg_color_none} \n"
+  echo "$command_result"
+  #exit 1
+else
+  echo -en "${msg_color_green}Finish PHP Mess Detector without any errors!${msg_color_none} \n"
+fi
+
+
+# ---------------------------------------------------------------------
+# PHP Unit
+# ---------------------------------------------------------------------
+
+echo -en "${msg_color_yellow}Begin PHP Unit Task Runner...${msg_color_none} \n"
+
+phpunit_local_exec="phpunit.phar"
+phpunit_command="php $phpunit_local_exec"
+
+# Check if phpunit is available
+phpunit_vendor_command="vendor/bin/phpunit"
+phpunit_global_command="phpunit"
+if [ -f "$phpunit_vendor_command" ]; then
+  phpunit_command=$phpunit_vendor_command
+else
+  if hash phpunit 2>/dev/null; then
+    phpunit_command=$phpunit_global_command
+  else
+    if [ -f "$phpunit_local_exec" ]; then
+      phpunit_command=$phpunit_command
+    else
+      echo "No valid PHP Unit executable found! Please have one available as either $phpunit_vendor_command, $phpunit_global_command or $phpunit_local_exec"
+      exit 1
+    fi
+  fi
+fi
+
+# Excecute phpunit
+command_result=$(eval $phpunit_command --no-coverage)
+if [[ $command_result =~ ERRORS ]]; then
+  echo "Failures detected in unit tests..."
+  echo "$command_result"
+  exit 1
+else
+  echo -en "${msg_color_green}Finish PHP Unit without any errors!${msg_color_none} \n"
+fi
+
+exit 0
