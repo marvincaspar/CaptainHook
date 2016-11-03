@@ -1,0 +1,10 @@
+{
+    "name": "mc388/captainhook",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "autoload": {
+      "psr-4": {
+        "MarvinCaspar\\CaptainHook\\": "src"
+      }
+    }
+}
